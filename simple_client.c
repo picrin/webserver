@@ -1,31 +1,56 @@
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <string.h>
+#include <stdlib.h>
+
+int descriptor;
+int status;
+int status_write;
+const char *google_ip;
+
+const char *request;
+
+char response[1024];
+size_t response_size;
+
+
+in_addr_t google_ip_int;
+struct in_addr google_sockaddr; 
+struct sockaddr_in their_socket;
+
+
+int connection;
+
 
 void report_error(char* message){
   printf("%s", message);
   exit(1);
 }
 
-int main(){
-  int value = 0;
 
-  int server_descriptor = socket(PF_INET, SOCK_STREAM, 0);
-  if(server_descriptor == -1) report_error("socket descriptor error");
-  
-  struct sockaddr_in server_addrport;
-  server_addrport.sin_addr.s_addr = htonl(INADDR_ANY);
-  server_addrport.sin_family = AF_INET;
-  server_addrport.sin_port = htons(8080);
-  
-  int bind_status = bind(server_descriptor, (struct sockaddr *) &server_addrport, sizeof(struct sockaddr_in));
-  if(bind_status == -1) report_error("socket couldn't be bound error");
+int main(int arg_count, char** args){
+  descriptor = socket(PF_INET, SOCK_STREAM, 0);
+  if(descriptor == -1) report_error("client socket descriptor error");
 
-  int listen_status;
-  listen(server_descriptor, backlog);
-  if(listen_status == -1) report_error("socket can't listen");
+  google_ip = "127.0.0.1";
 
-  struct sockaddr_in connection_addrport;
-  socklen_t len = sizeof(connection_addrport);
-  int accept_status;
-  accept(server_descriptor, (struct sockaddr *) &connection_addrport, &len);
-  if(accept_status == -1) report_error("socket accept error");
+  google_ip_int = inet_addr(google_ip);
   
+  their_socket.sin_family = AF_INET;
+
+  their_socket.sin_addr.s_addr = google_ip_int;
+  
+  their_socket.sin_port = htons(8080);
+
+  request = "GET / HTTP/1.1\r\nUser-Agent: curl/7.29.0\r\nHost: www.google.co.uk\r\nAccept: */*\r\n\r\n";
+
+  connection = connect(descriptor, (struct sockaddr*) &their_socket, sizeof(their_socket));
+  
+  printf("status connection %d\n", connection);
+
 }
+

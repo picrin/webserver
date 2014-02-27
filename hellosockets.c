@@ -25,7 +25,7 @@ struct sockaddr_in their_socket;
 int connection;
 
 int main(int arg_count, char** args){
-  descriptor = socket(AF_INET, SOCK_STREAM, 0);
+  descriptor = socket(PF_INET, SOCK_STREAM, 0);
   google_ip = "173.194.41.87";
 
   google_ip_int = inet_addr(google_ip);
