@@ -7,50 +7,38 @@
 #include <string.h>
 #include <stdlib.h>
 
-int descriptor;
-int status;
-int status_write;
-const char *google_ip;
-
-const char *request;
-
-char response[1024];
-size_t response_size;
-
-
-in_addr_t google_ip_int;
-struct in_addr google_sockaddr; 
-struct sockaddr_in their_socket;
-
-
-int connection;
-
-
 void report_error(char* message){
-  printf("%s", message);
+  printf("%s\n", message);
   exit(1);
 }
 
 
-int main(int arg_count, char** args){
-  descriptor = socket(PF_INET, SOCK_STREAM, 0);
-  if(descriptor == -1) report_error("client socket descriptor error");
+int main(){
+  int server_descriptor = socket(PF_INET, SOCK_STREAM, 0);
+  if(server_descriptor == -1) report_error("client socket descriptor error");
 
-  google_ip = "127.0.0.1";
+  char* server_ip = "127.0.0.1"; // you can run nmap on 192.168.0.*, this should tell you all local computers conected to local network.
 
-  google_ip_int = inet_addr(google_ip);
+  struct sockaddr_in server_addr;
+  server_addr.sin_family = AF_INET;
+
+  server_addr.sin_addr.s_addr = inet_addr(server_ip);
   
-  their_socket.sin_family = AF_INET;
+  server_addr.sin_port = htons(8080);
 
-  their_socket.sin_addr.s_addr = google_ip_int;
+  int status_connection = connect(server_descriptor,
+      (struct sockaddr*) &server_addr,
+      sizeof(server_addr));
+  if (status_connection == -1)
+    report_error("client connection error");
   
-  their_socket.sin_port = htons(8080);
+  char* request = "czesc gosia";
 
-  request = "GET / HTTP/1.1\r\nUser-Agent: curl/7.29.0\r\nHost: www.google.co.uk\r\nAccept: */*\r\n\r\n";
-
-  connection = connect(descriptor, (struct sockaddr*) &their_socket, sizeof(their_socket));
+  int status_write = write(server_descriptor, request, strlen(request));
+  //printf("string length %lu\n", strlen(request));
+  if(status_write == -1){
+    report_error("status write error");
+  }
   
-  printf("status connection %d\n", connection);
-
 }
 

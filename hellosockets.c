@@ -57,6 +57,6 @@ int main(int arg_count, char** args){
   status = close(descriptor);
 
   //printf("%d\n", descriptor);
-  printf("status descriptor %d\n", status);
+  printf("status close %d\n", status);
   return 0;
 }
