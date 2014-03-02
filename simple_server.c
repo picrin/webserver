@@ -41,7 +41,7 @@ int main(){
   if(server_descriptor == -1) report_error("socket descriptor error");
   
   struct sockaddr_in server_addrport;
-  server_addrport.sin_addr.s_addr = inet_addr("127.0.0.1");
+  server_addrport.sin_addr.s_addr = inet_addr("192.168.0.6");
   server_addrport.sin_family = AF_INET;
   server_addrport.sin_port = htons(8080);
   
@@ -66,19 +66,18 @@ int main(){
   const char* delimiter = "\r\n\r\n";
   int delimiter_len = strlen(delimiter);
   errno = 0;
-  message_length = read(accept_status, recv_buffer, recv_len);
+  //message_length = read(accept_status, recv_buffer, recv_len);
   //printf("message_length: %d\n", message_length);
   //printf("sockerr_no %s: ", strerror(errno));
-  printf("message: %s\n", recv_buffer);
-  close(server_descriptor);
-  //Dear father, could you plea$e $end me $ome money?
-  /*while(finished != 0 && message_length != -1){
-    int i;
-    int k;
-    int inner_finished;
-    message_length = read(server_descriptor, recv_buffer, recv_len);
-    printf("message_length: %d", message_length);
-    for(i = 0; i < message_length - delimiter_len; i++){
+  //printf("message: %s\n", recv_buffer);
+  while(/*!finished && message_length != -1*/ 1){
+    //int i;
+    //int k;
+    //int inner_finished;
+    message_length = read(accept_status, recv_buffer, recv_len);
+    printf("message_length: %d\n", message_length);
+    printf("message: %s\n", recv_buffer);
+    /*for(i = 0; i < message_length - delimiter_len; i++){
       printf("recv_buffer %c\n", recv_buffer[i]);
       inner_finished = correct_delimiter(recv_buffer, delimiter_len, delimiter);
       if(inner_finished){
@@ -88,8 +87,10 @@ int main(){
     for(k = 0; k < i; k++){
       received_string[k + message_counter] = recv_buffer[k];
     }
-    message_counter += i;
+    message_counter += i;*/
   }
   received_string[message_counter + 1] = '\0';
-  printf("%s\n", received_string);*/
+  printf("%s\n", received_string);
+  close(server_descriptor);
+  close(accept_status);
 }
