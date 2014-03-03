@@ -11,7 +11,7 @@
 
 const int backlog = 20;
 
-const char* DELIMITER = "\r\n\r\n";
+const char* DELIMITER = "1234";
 const int DELIMITER_LENGTH = 4;
 
 void report_error(char* message){
@@ -19,44 +19,85 @@ void report_error(char* message){
   exit(1);
 }
 
-struct indicies{
-  char* position_index = 0;
-  int delimiter_index = 0;
-  char* big_buffer_index = 0;
+struct indecies{
+  char* position_index;
+  int delimiter_counter;
+  char* big_buffer_index;
+};
+
+struct indecies* malloc_indecies(){
+  return (struct indecies*) calloc(sizeof(struct indecies), 1);
 }
+
+void free_indecies(struct indecies* i){
+  free(i);
+}
+
+void print_indecies(struct indecies* i){
+  printf("---- begin indecies ----\n");
+  printf("position_index: %lu\n", i->position_index);
+  printf("delimiter_counter: %d\n", i->delimiter_counter);
+  printf("big_buffer_index: %lu\n", i->big_buffer_index);
+  printf("---- end indecies ----\n");
+}
+
 //sets indicies->position_index to the value just after the end of a delimiter or NULL if couldn't find one.
 //TODO add security check for big_buffer_index.
-//TODO test this, it's a complicated piece of code.
-void read_http_message(char* buffer_end, int delimiter_length, struct indicies* indecies){
+//TODO test this, it's a complicated piece of code. //TODO-ING 
+int read_http_message(struct indecies* indecies, const char* buffer_begin, const char* buffer_end){
   char* i;
-  for(i = pd->position_index; i <= buffer_end; i++){
+  for(i = indecies->position_index; i < buffer_end; i++){
     *(indecies->big_buffer_index) = *i;
     (indecies->big_buffer_index)++;
-    if (*i == *(DELIMITER + indecies->delimiter_index)){
-      (indecies->delimiter_index)++;
-      if (delimiter_index == DELIMITER_LENGTH){
+    if (*i == *(DELIMITER + indecies->delimiter_counter)){
+      (indecies->delimiter_counter)++;
+      if (indecies->delimiter_counter == DELIMITER_LENGTH){
         indecies->position_index = i + 1;
-        indecies->delimiter_index = 0;
-        return;
+        indecies->delimiter_counter = 0;
+        return 1;
       }
     }
-    else indecies->delimiter_index = 0;
-}
-
-int correct_delimiter(char* buffer, int buffer_length, const char* delimiter){
-  int i;
-
-  for(i = 0; i < buffer_length; i++){
-    if(*(buffer + i) != *(delimiter + i)) return 0;
+    else indecies->delimiter_counter = 0;
   }
-  return 1;
+  indecies->position_index = (char*) buffer_begin;
+  return 0;
 }
+
 
 int main(){
   /*
-    char* buffer = "\r\n\r\n";
-    char* delimiter = "\r\n\r\n"; 
-    printf("%d", correct_delimiter(buffer, 4, delimiter));
+  //test1
+  const char bigbuffer[10000];
+  struct indecies* i = malloc_indecies();
+  char* buffer_beg = "babajagapatrzy1234rotwailery";
+  char* buffer_end = buffer_beg + strlen(buffer_beg);
+  i->position_index = buffer_beg;
+  i->big_buffer_index = (char*) bigbuffer;
+  printf("TEST 1 ---------------------------------------------\n");
+  print_indecies(i);
+  read_http_message(i, buffer_end);
+  print_indecies(i);
+  //test2
+  i = malloc_indecies();
+  buffer_beg = "babajagapatrzyrotwailery12";
+  buffer_end = buffer_beg + strlen(buffer_beg);
+  i->position_index = buffer_beg;
+  i->big_buffer_index = (char*) bigbuffer;
+  printf("TEST 2 ---------------------------------------------\n");
+  print_indecies(i);
+  read_http_message(i, buffer_end);
+  print_indecies(i);
+
+  //test3
+  i = malloc_indecies();
+  buffer_beg = "babajagapatrzy1234rotwailery" + 10;
+  buffer_end = buffer_beg + strlen(buffer_beg);
+  i->position_index = buffer_beg;
+  i->big_buffer_index = (char*) bigbuffer;
+  printf("TEST 3 ---------------------------------------------\n");
+  print_indecies(i);
+  read_http_message(i, buffer_end);
+  print_indecies(i);
   */
   
   int server_descriptor = socket(PF_INET, SOCK_STREAM, 0);
@@ -85,45 +126,40 @@ int main(){
   int accept_status;
   accept_status = accept(server_descriptor, (struct sockaddr *) &connection_addrport, &len);
   if(accept_status == -1) report_error("socket accept error");
-  const int recv_len = 13; 
-  int message_counter = 0;
-  int message_length = -2; // not to get confused with >0, 0 or -1, all of which have meaning.
+  
+  const int recv_len = 150;
+  const int big_buffer_len = 10000;
   char recv_buffer[recv_len];// = (char *)malloc(sizeof(char) * recv_len);
-  char received_string[10000];
-  const char* delimiter = "abcd";
-  int delimiter_len = strlen(delimiter);
-  int delim_char = 0;
-  char *finished == 0;
-  errno = 0;
-  while(1)
-  {
-    int i;
-    int k;
+  memset(recv_buffer, 0, sizeof(recv_buffer));
+  //recv_buffer[len] = '\0';
+  int message_length = -2; // not to get confused with >0, 0 or -1, all of which have meaning.
+  char received_string[big_buffer_len];
+  memset(received_string, 0, sizeof(received_string));
+
+  struct indecies* indecies_state = malloc_indecies();
+  indecies_state->big_buffer_index = (char *) received_string;
+  indecies_state->position_index = (char *) recv_buffer;
+  int has_delimiter = 0;
+  while(message_length != 0){
     message_length = read(accept_status, recv_buffer, recv_len);
-    switch (message_length){
-      case 0:
-        printf("client closed socket\n");
-        goto end_soc_read;
-      case -1:
-        report_error("read error");
-        break;
-      default:
-        break;
-    }
+    if (message_length == -1) report_error("read error");
+    print_indecies(indecies_state);
     
-    for(i = 0; i <= message_length; i++){
+    //printf("recv_buffer + message_length: %lu\n", recv_buffer + message_length);
+    has_delimiter = read_http_message(indecies_state, recv_buffer, recv_buffer + message_length);
+    while(has_delimiter != 0){
+      has_delimiter = read_http_message(indecies_state, recv_buffer, recv_buffer + message_length);
     }
-    for(k = 0; k < i - 1; k++){
-      received_string[k + message_counter] = recv_buffer[k];
-    }
-    message_counter += (i - 1);
-    //printf("message_counter %d\n", message_counter);
+    //printf("string: %s, has delimiter: %d\n", recv_buffer, has_delimiter);
+    //print_indecies(indecies_state);
+
   }
 
   //finished = correct_delimiter(recv_buffer + i, delimiter_len, delimiter);
-
-  received_string[message_counter + 1] = '\0';
-  printf("heeeeeeeeeeeeeeeeeeeeej:\n%s\n", received_string);
+  *(indecies_state->big_buffer_index + 1) = '\0';
+  printf("recovered string:\n%s\n", received_string);
+  free_indecies(indecies_state);
   close(server_descriptor);
   close(accept_status);
+  
 }
