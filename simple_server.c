@@ -57,40 +57,56 @@ int main(){
   int accept_status;
   accept_status = accept(server_descriptor, (struct sockaddr *) &connection_addrport, &len);
   if(accept_status == -1) report_error("socket accept error");
-  const int recv_len = 150; 
+  const int recv_len = 13; 
   int message_counter = 0;
-  int message_length = 0;
-  char* recv_buffer = (char *)malloc(sizeof(char) * recv_len);
+  int message_length = -2; // not to get confused with >0, 0 or -1, all of which have meaning.
+  char recv_buffer[recv_len];// = (char *)malloc(sizeof(char) * recv_len);
   char received_string[10000];
   int finished = 0;
-  const char* delimiter = "\r\n\r\n";
+  const char* delimiter = "aaab";
   int delimiter_len = strlen(delimiter);
   errno = 0;
   //message_length = read(accept_status, recv_buffer, recv_len);
   //printf("message_length: %d\n", message_length);
   //printf("sockerr_no %s: ", strerror(errno));
   //printf("message: %s\n", recv_buffer);
-  while(/*!finished && message_length != -1*/ 1){
-    //int i;
-    //int k;
-    //int inner_finished;
+  while(!finished) //soc_read
+  {
+    //printf("finished: %i\n", finished);
+    int i;
+    int k;
     message_length = read(accept_status, recv_buffer, recv_len);
-    printf("message_length: %d\n", message_length);
-    printf("message: %s\n", recv_buffer);
-    /*for(i = 0; i < message_length - delimiter_len; i++){
-      printf("recv_buffer %c\n", recv_buffer[i]);
-      inner_finished = correct_delimiter(recv_buffer, delimiter_len, delimiter);
-      if(inner_finished){
-        finished = 1;
+    switch (message_length){
+      case 0:
+        printf("client closed socket\n");
+        goto end_soc_read;
+      case -1:
+        report_error("read error");
+        break;
+      default:
+        break;
+    }
+    //printf("message_length: %d\n", message_length);
+    //printf("message: %s\n", recv_buffer);
+    
+    for(i = 0; i <= message_length - delimiter_len; i++){
+      //printf("recv_buffer %c\n", recv_buffer[i]);
+      //printf("recv_buffer %i\n", recv_buffer[i]);
+      finished = correct_delimiter(recv_buffer + i, delimiter_len, delimiter);
+      if(finished){
+        i++;
+        break;
+        //printf("\n\n\n\nSUC\n\n\n\n");
       }
     }
-    for(k = 0; k < i; k++){
+    for(k = 0; k < i - 1; k++){
       received_string[k + message_counter] = recv_buffer[k];
     }
-    message_counter += i;*/
-  }
+    message_counter += (i - 1);
+    //printf("message_counter %d\n", message_counter);
+  } end_soc_read:
   received_string[message_counter + 1] = '\0';
-  printf("%s\n", received_string);
+  printf("heeeeeeeeeeeeeeeeeeeeej:\n%s\n", received_string);
   close(server_descriptor);
   close(accept_status);
 }
