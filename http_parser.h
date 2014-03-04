@@ -6,6 +6,7 @@ struct request{
   int request_ok;
   char* host_name;
   char* resource_name;
+  int keep_alive;
 };
 struct request* malloc_request();
 void free_request(struct request* free_request);
@@ -22,8 +23,13 @@ int resource_exists(struct request* request);
 
 struct response{
   int code;
-  char* html;
+  int content_length;
+  char* content_type;
+  int response_descriptor;
 };
+struct response* malloc_response();
+void free_response(struct response* free_response);
+void print_response(const struct response* req);
 
 
 #endif //HTTP_PARSER_H

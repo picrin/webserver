@@ -1,9 +1,10 @@
 #I prefer to use this set of flags and clang as compiler. 
 COMP=clang
-CFLAGS=-std=c99 -Wall -Wextra -pedantic -Wfatal-errors -g
+#CFLAGS=-std=c99 -Wall -Wextra -pedantic -Wfatal-errors -g
+CFLAGS= -Wall -Wextra -Wfatal-errors -g
 
 #These are reommended flags, and a recommended compiler.  
-#COMP=gcc
+COMP=gcc
 #CFLAGS=-Wall -Wextra -O2
 
 main: main.o http_parser.o
@@ -17,5 +18,9 @@ http_parser.o: http_parser.h http_parser.c
 
 client: simple_client.c
 	$(COMP) $(CFLAGS) simple_client.c -o client
-server: simple_server.c
-	$(COMP) $(CFLAGS) simple_server.c -o server
+
+server.o: simple_server.c
+	$(COMP) $(CFLAGS) -c simple_server.c -o server.o
+
+server: server.o http_parser.o
+	$(COMP) $(CFLAGS) http_parser.o server.o -o server

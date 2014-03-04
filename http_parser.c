@@ -1,7 +1,67 @@
 #include "http_parser.h"
+#define _GNU_SOURCE
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+int write_responce(const char* filename, int stream, ){
+    const int bufsize = 5;
+    char buffer[bufsize];
+    //memset(buffer, 50, 10000);
+    int i;
+
+    FILE *fp = fopen("something.c", "rb");
+ 
+    if (fp == NULL) {
+        perror("there's no file");
+        return 1;
+    }
+ 
+    /* be sure to never read more than 5 char */
+    int rc = getc(fp);
+    while(rc != EOF){
+        
+        if (rc == EOF) {
+            break;
+        }
+        buffer[i] = rc;
+    }
+    buffer[i] = '\0';
+    printf("%s", buffer);
+    fclose(fp);
+    return 0;
+}
+
+int resource_exists(struct request* request){
+    FILE* fp = fopen(request -> resource_name, "rb");
+    int returned = (int) fp;
+    fclose(fp);
+    return returned;    
+}
+
+
+char* parse_header(char* host, char** headers, unsigned int minimum_length, int size, struct request* parse_to){
+  int i_host;
+  char* from_request;
+  for(i_host = 1; i_host < size - 1; i_host++){
+    from_request = headers[i_host];
+    //printf("string checked: %s\n", from_request);
+    if(strcasestr(from_request, host) == from_request) break;
+    //printf("i_host, %d, %d\n", i_host, i - 1);
+  }
+    
+  if(i_host == (size - 1)){
+    printf("7: parse error, no %s header\n", host);
+    parse_to->request_ok = 7;
+    return NULL;
+  }
+  
+  if(strlen(headers[i_host]) < minimum_length){
+    printf("8: parse error, %s header too short\n", host);
+  }
+
+  return strstr(headers[i_host], " ");
+}
 
 struct request* malloc_request(){
   struct request* return_this;
@@ -15,6 +75,7 @@ struct request* malloc_request(){
 void print_request(const struct request* req){
   printf("-------- BEGIN struct request --------\n");
   printf("request code: %d\n", req->request_ok);
+  printf("kepp-alive: %d\n", req->keep_alive);
   printf("hostname: %s\n", req->host_name);
   printf("resource path: %s\n", req->resource_name);
   printf("-------- END struct request --------\n");
@@ -52,7 +113,7 @@ void parse_request(struct request *parse_to, char *request_str){
   /*
    * 1st sanity check. Is the request long enough?
    * 0 -- get header, 1 -- hostname, 2 -- empty 
-   * TODO better error reporting, i.e. sterr
+   * TODO better error reporting, i.e. stderr
    */
   if(i < 2){
     printf("1: parse error, short request\n");
@@ -125,37 +186,18 @@ void parse_request(struct request *parse_to, char *request_str){
     http_ver++;
   }
   
-  char* host = "Host: ";
-  int i_host;
-  char* from_request;
-  char* host_begin;
-  
-    
-  for(i_host = 1; i_host < i - 1; i_host++){
-    from_request = saveptr[i_host];
-    //printf("string checked: %s\n", from_request);
-    if(strstr(from_request, host) == from_request) break;
-    //printf("i_host, %d, %d\n", i_host, i - 1);
-  }
-  
-  
-  
-  if(i_host == (i - 1)){
-    printf("7: parse error, no \"Host: \" header\n");
-    parse_to->request_ok = 7;
-    return;
-  }
-  
-  if(strlen(saveptr[i_host]) < 7){
-    printf("8: parse error, Host header too short\n");
-  }
+  char* host_begin = parse_header("HoSt: ", saveptr, 7, i, parse_to);
+  char* connection = parse_header("connection: ", saveptr, 13, i, parse_to);
+  if(connection != NULL && strcasestr(connection, "keep-alive") != NULL) parse_to->keep_alive = 1;
+  else if(connection != NULL && strcasestr(connection, "close") != NULL) parse_to->keep_alive = 0;
+  else parse_to->keep_alive = 0;
 
-  host_begin = strstr(saveptr[i_host], " ");
-  printf("magia\n");
-  for(int k = 1; k <= 20; k++){
-    printf("%lu\n", *(host_begin + k));
-  }
-  printf("end_magia\n");
+  if(host_begin == 0) return;
+  //printf("magia\n");
+  //for(int k = 1; k <= 20; k++){
+  //  printf("%lu\n", *(host_begin + k));
+  //}
+  //printf("end_magia\n");
   //printf("hello");
   //done with checking, allocate new string for memory 
   char* resource_req = (char*) malloc(sizeof(char) * (resource_end - resource_begin));
