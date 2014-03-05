@@ -27,7 +27,8 @@ struct response{
   char* content_type;
   int response_descriptor;
 };
-struct response* malloc_response();
+
+struct response* malloc_response(struct request*);
 void free_response(struct response* free_response);
 void print_response(const struct response* req);
 

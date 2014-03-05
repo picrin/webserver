@@ -3,39 +3,156 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/stat.h>
 
-int write_responce(const char* filename, int stream, ){
+int write_responce(struct request* req, struct response* resp, const char* filename, int stream){
     const int bufsize = 5;
     char buffer[bufsize];
     //memset(buffer, 50, 10000);
-    int i;
-
+    
     FILE *fp = fopen("something.c", "rb");
  
     if (fp == NULL) {
-        perror("there's no file");
+        req->request_ok = 404;
+        printf("there's no file");
         return 1;
     }
- 
+
     /* be sure to never read more than 5 char */
-    int rc = getc(fp);
-    while(rc != EOF){
-        
+    int rc;
+    while((rc = getc(fp)) != EOF){
         if (rc == EOF) {
             break;
         }
-        buffer[i] = rc;
     }
-    buffer[i] = '\0';
-    printf("%s", buffer);
+
+    //printf("%s", buffer);
     fclose(fp);
     return 0;
+}
+/*
+struct request{
+  int request_ok;
+  char* host_name;
+  char* resource_name;
+  int keep_alive;
+};
+
+struct response{
+  char* code;
+  int content_length;
+  char* content_type;
+  int response_descriptor;
+};
+*/
+char* stralloc(const char* string){
+  char* malloced = (char*) malloc(sizeof(char) * (strlen(string) + 1));
+  strcpy(malloced, string);
+  return malloced;
+}
+
+int check_extension(char* string){
+  char* last_dot = string;
+  char* next_dot = last_dot;
+  while((next_dot = strstr(next_dot + 1, ".")) != NULL){
+    last_dot = next_dot;
+  }
+  printf("%s", last_dot);
+}
+
+struct request{
+  int request_ok;
+  char* host_name;
+  char* resource_name;
+  int keep_alive;
+};
+
+struct response{
+  int code;
+  int content_length;
+  char* content_type;
+  int response_descriptor;
+};
+
+
+struct response* malloc_response(struct request* req){
+  struct response* resp = (struct response*) malloc(sizeof(struct response));
+  if(req->request_ok == -1){
+    resp->code = stralloc("500 Internal Server Error");
+    return resp;
+  }
+  else if(req->request_ok == 404){
+    resp->code = stralloc("404 Not Found");
+    return resp;
+  }
+  else if(req->request_ok != 0){
+    resp->code = stralloc("400 Bad Request");
+    return resp;
+  }
+  else{
+    resp->code = stralloc("200 OK");
+    content_length ->
+  }
+}
+
+
+
+char* resource_normalise(char* resource_string){
+  char* malloced;
+  if (strcmp(resource_string, "/") == 0){
+    const char* defaul = "index.html";
+    malloced = (char*) malloc(sizeof(char) * (strlen(defaul) + 1));
+    strcpy(malloced, defaul);
+    //printf("hello%s", malloced);
+
+    free(resource_string);
+    return malloced;
+  }
+  else if (strstr(resource_string, "/") == resource_string){
+    int size_to_malloc = strlen(resource_string);
+    malloced = (char*) malloc(sizeof(char) * size_to_malloc);
+    //strcpy(malloced, (const char *) ".");
+    strcpy(malloced, resource_string + 1);
+    //strcpy(malloced, defaul);
+    
+    free(resource_string);
+    return malloced;
+  }
+  else{
+    return resource_string;
+  }
+}
+/*
+int correct_host(struct request* request){
+  size_t large = 1000;
+  char jebany[large];
+  gethostname(jebany, large);
+  
+  if (strcmp(request->host_name, jebany) == 0) return 1;
+  else if((strstr(request->host_name, jebany) == request->host_name) && strstr(request->host_name, ".dcs.gla.ac.uk") == request->host_name + strlen(jebany)) return 1;
+  else return 0;
+}*/
+
+int correct_host(struct request* request){
+  size_t large = 1000;
+  char jebany[large];
+  gethostname(jebany, large);
+  if (strstr(request->host_name, jebany) == request->host_name) return 1;
+  else return 0;
 }
 
 int resource_exists(struct request* request){
     FILE* fp = fopen(request -> resource_name, "rb");
-    int returned = (int) fp;
-    fclose(fp);
+    int returned;
+    if (fp != NULL){
+      returned = 1;
+      fclose(fp);
+    } else {
+      returned = 0;
+      request -> request_ok = 404;
+    }
+    
     return returned;    
 }
 
@@ -89,6 +206,10 @@ void free_request(struct request* free_request){
 }
 
 void parse_request(struct request *parse_to, char *request_str){
+  printf("ffffffffffffffffffffffffff\n");
+  printf("%s", request_str);
+  printf("ffffffffffffffffffffffffff\n");
+
   const int max_no_headers = 128;
   //const int max_length_header = 1024;
   //const char** stable;
@@ -186,13 +307,13 @@ void parse_request(struct request *parse_to, char *request_str){
     http_ver++;
   }
   
-  char* host_begin = parse_header("HoSt: ", saveptr, 7, i, parse_to);
+  char* host_begin = parse_header("host: ", saveptr, 7, i, parse_to);
   char* connection = parse_header("connection: ", saveptr, 13, i, parse_to);
   if(connection != NULL && strcasestr(connection, "keep-alive") != NULL) parse_to->keep_alive = 1;
   else if(connection != NULL && strcasestr(connection, "close") != NULL) parse_to->keep_alive = 0;
   else parse_to->keep_alive = 0;
 
-  if(host_begin == 0) return;
+  if(host_begin == NULL) return;
   //printf("magia\n");
   //for(int k = 1; k <= 20; k++){
   //  printf("%lu\n", *(host_begin + k));
@@ -200,8 +321,9 @@ void parse_request(struct request *parse_to, char *request_str){
   //printf("end_magia\n");
   //printf("hello");
   //done with checking, allocate new string for memory 
-  char* resource_req = (char*) malloc(sizeof(char) * (resource_end - resource_begin));
-  char* host_req = (char*) malloc(sizeof(char) * strlen(host_begin + 1));
+  char* resource_req = (char*) malloc(sizeof(char) * (resource_end - resource_begin) + 1);
+
+  char* host_req = (char*) malloc(sizeof(char) * strlen(host_begin) + 1);
   strcpy(host_req, host_begin);
   
   *resource_end = '\0';
@@ -209,9 +331,19 @@ void parse_request(struct request *parse_to, char *request_str){
   
   strcpy(host_req, host_begin + 1);
   strcpy(resource_req, resource_begin);
+
+  resource_req = resource_normalise(resource_req);
   
   parse_to->host_name = host_req;
   parse_to->resource_name = resource_req;
+  
+  if(!resource_exists(parse_to)) return;
+  if(!correct_host(parse_to)){
+    parse_to -> request_ok = 9;
+    printf("parse error wrong hostname");
+    return;
+  }
+  
   parse_to->request_ok = 0;
   //printf("%s\n", host_req);
   //printf("%s\n", resource_req);
