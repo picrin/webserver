@@ -28,6 +28,7 @@ int subtractor(){
   }
 }
 
+int LISTENER_FD;
 int main(){
   pthread_t id0;
   pthread_t id1;

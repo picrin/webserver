@@ -10,15 +10,20 @@
 #include <errno.h>
 
 #include "http_parser.h"
+#include <pthread.h>
 
+const int thread_no = 20;
 const int backlog = 20;
 
 const char* DELIMITER = "\r\n\r\n";
 const int DELIMITER_LENGTH = 4;
 
+int server_descriptor;
+
+
 void report_error(char* message){
   printf("%s\n", message);
-  exit(1);
+  pthread_exit(0);
 }
 
 struct indecies{
@@ -44,7 +49,7 @@ void print_indecies(struct indecies* i){
 }
 
 //sets indicies->position_index to the value just after the end of a delimiter or NULL if couldn't find one.
-//TODO add security check for big_buffer_index.
+//DONE -- in the big loop of the accepting code. Add security check for big_buffer_index.
 int find_delimiter(struct indecies* indecies, const char* buffer_begin, const char* buffer_end){
   char* i;
   for(i = indecies->position_index; i < buffer_end; i++){
@@ -64,7 +69,7 @@ int find_delimiter(struct indecies* indecies, const char* buffer_begin, const ch
   return 0;
 }
 
-void dispatch_request(char* from, char* to){
+void dispatch_request(char* from, char* to, int accept_socket, int* keep_alive){
   char* req_str = (char*) malloc(sizeof(char) * (to - from + 1));
   char* char_i;
   int int_i;
@@ -74,9 +79,79 @@ void dispatch_request(char* from, char* to){
   *(req_str + int_i) = '\0';
   struct request* req = malloc_request();
   parse_request(req, req_str);
+  struct response* resp = malloc_response(req);
+  //free(req_str);
+  write_request(resp, accept_socket);
+  if(resp->html == 0){
+    read_file(req->resource_name, accept_socket);
+  } else{
+    int magia = write(accept_socket, resp->html, strlen(resp->html));
+  }
+  *keep_alive = req->keep_alive;
   free(req_str);
-  print_request(req);  
+  free_request(req);
+  print_response(resp);
+  free_response(resp); 
 }
+
+void forever_accept(){
+  struct sockaddr_in connection_addrport;
+  socklen_t len = sizeof(connection_addrport);
+  int accept_status;
+  while(1){
+  accept_status = accept(server_descriptor,
+      (struct sockaddr *) &connection_addrport,
+      &len);
+  if(accept_status == -1) report_error("socket accept error");
+  
+  const int recv_len = 1500;
+  const int big_buffer_len = 10000;
+  char recv_buffer[recv_len];// = (char *)malloc(sizeof(char) * recv_len);
+  memset(recv_buffer, 0, sizeof(recv_buffer));
+  
+  // not to get confused with >0, 0 or -1, all of which have meaning.
+  int message_length = -2;
+  char received_string[big_buffer_len];
+  //char dispatch_request[big_buffer_len];
+  memset(received_string, 0, sizeof(received_string));
+
+  struct indecies* indecies_state = malloc_indecies();
+  indecies_state->big_buffer_index = (char *) received_string;
+  indecies_state->position_index = (char *) recv_buffer;
+  int has_delimiter = 0;
+  char* end;
+  int keep_alive = 1;
+  while(message_length != 0 && keep_alive == 1){
+    message_length = read(accept_status, recv_buffer, recv_len);
+    //if (message_length == -1)report_error("read error");
+    if (message_length + (indecies_state->big_buffer_index) >=
+        (char *) received_string + big_buffer_len) report_error("GET request to"
+        "o big, or too many GET requests in too short time. Support for up to 1"
+        "0 kB/read");
+    //print_indecies(indecies_state);
+    
+    //printf("recv_buffer + message_length: %lu\n", recv_buffer + message_length);
+    //printf("ttuuuuuuuuuuuuuuuuuuuuuuuuuuuheasfglkeurhglksjfb%d", message_length);
+    //dispatch request
+    //zero the big buffer
+    //do it recursively until finished 
+    while((has_delimiter = find_delimiter(indecies_state,
+        recv_buffer, recv_buffer + message_length)) != 0){
+
+      end = indecies_state->big_buffer_index;
+      
+      indecies_state->big_buffer_index = (char*) received_string;
+      dispatch_request((char*) received_string, end, accept_status, &keep_alive);
+      //zero the big buffer; //could be done, but doesn't have to.  
+    }
+  }
+  free_indecies(indecies_state);
+  printf("closing\n");
+  close(accept_status);
+  }
+}
+
+
 
 int main(){
   /*
@@ -114,7 +189,7 @@ int main(){
   print_indecies(i);
   */
   
-  int server_descriptor = socket(PF_INET, SOCK_STREAM, 0);
+  server_descriptor = socket(PF_INET, SOCK_STREAM, 0);
     
   int optval = 1;
   int opts_status;
@@ -127,7 +202,7 @@ int main(){
   struct sockaddr_in server_addrport;
   server_addrport.sin_addr.s_addr = inet_addr("127.0.0.1");
   server_addrport.sin_family = AF_INET;
-  server_addrport.sin_port = htons(8081);
+  server_addrport.sin_port = htons(8080);
   
   int bind_status = bind(server_descriptor,
       (struct sockaddr *) &server_addrport,
@@ -137,70 +212,23 @@ int main(){
   int listen_status;
   listen_status = listen(server_descriptor, backlog);
   if(listen_status == -1) report_error("socket can't listen");
-
-  struct sockaddr_in connection_addrport;
-  socklen_t len = sizeof(connection_addrport);
-  int accept_status;
-  accept_status = accept(server_descriptor,
-      (struct sockaddr *) &connection_addrport,
-      &len);
-  if(accept_status == -1) report_error("socket accept error");
   
-  const int recv_len = 1500;
-  const int big_buffer_len = 10000;
-  char recv_buffer[recv_len];// = (char *)malloc(sizeof(char) * recv_len);
-  memset(recv_buffer, 0, sizeof(recv_buffer));
-  
-  // not to get confused with >0, 0 or -1, all of which have meaning.
-  int message_length = -2;
-  char received_string[big_buffer_len];
-  //char dispatch_request[big_buffer_len];
-  memset(received_string, 1, sizeof(received_string));
-
-  struct indecies* indecies_state = malloc_indecies();
-  indecies_state->big_buffer_index = (char *) received_string;
-  indecies_state->position_index = (char *) recv_buffer;
-  int has_delimiter = 0;
-
-  char* end;
-  while(message_length != 0){
-    message_length = read(accept_status, recv_buffer, recv_len);
-    if (message_length == -1) report_error("read error");
-    if (message_length + (indecies_state->big_buffer_index) >=
-        (char *) received_string + big_buffer_len) report_error("GET request to"
-        "o big, or too many GET requests in too short time. Support for up to 1"
-        "0 kB/read");
-    //print_indecies(indecies_state);
-    
-    //printf("recv_buffer + message_length: %lu\n", recv_buffer + message_length);
-    
-    //dispatch request
-    //zero the big buffer
-    //do it recursively until finished 
-    while((has_delimiter = find_delimiter(indecies_state,
-        recv_buffer, recv_buffer + message_length)) != 0){
-
-      end = indecies_state->big_buffer_index;
-      //printf("message\n");
-      //for(begin = (char*) received_string; begin< end; begin++){
-      //  printf("%c", *begin);
-      //}
-      //printf("\nend message\n");
-      indecies_state->big_buffer_index = (char*) received_string;
-      dispatch_request((char*) received_string, end);
-      //zero the big buffer;
-      
-    }
-    //printf("string: %s, has delimiter: %d\n", recv_buffer, has_delimiter);
-    //print_indecies(indecies_state);
-
+  pthread_t ids[thread_no];
+  //pthread_t id0;
+  //pthread_t id1;
+  int i;
+  for(i = 0; i<thread_no; i++){
+    pthread_create (
+        &ids[i],
+        NULL,
+        (void*(*)())&forever_accept,
+        NULL); 
   }
+  //pthread_join(id1, NULL);
 
-  //finished = correct_delimiter(recv_buffer + i, delimiter_len, delimiter);
-  //*(indecies_state->big_buffer_index + 1) = '\0';
-  //printf("recovered string:\n%s\n", received_string);
-  free_indecies(indecies_state);
+
+  forever_accept();
+  
   close(server_descriptor);
-  close(accept_status);
   return 0;
 }

@@ -5,32 +5,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <stdarg.h>
 
-int write_responce(struct request* req, struct response* resp, const char* filename, int stream){
-    const int bufsize = 5;
-    char buffer[bufsize];
-    //memset(buffer, 50, 10000);
-    
-    FILE *fp = fopen("something.c", "rb");
- 
-    if (fp == NULL) {
-        req->request_ok = 404;
-        printf("there's no file");
-        return 1;
-    }
-
-    /* be sure to never read more than 5 char */
-    int rc;
-    while((rc = getc(fp)) != EOF){
-        if (rc == EOF) {
-            break;
-        }
-    }
-
-    //printf("%s", buffer);
-    fclose(fp);
-    return 0;
-}
 /*
 struct request{
   int request_ok;
@@ -46,57 +22,218 @@ struct response{
   int response_descriptor;
 };
 */
+
+
 char* stralloc(const char* string){
   char* malloced = (char*) malloc(sizeof(char) * (strlen(string) + 1));
   strcpy(malloced, string);
   return malloced;
 }
 
-int check_extension(char* string){
+char* glue_strings(int no, ...){
+  va_list ap;
+  int j;
+  char* result;
+  int total_len = 0;
+  
+  va_start(ap, no); /* Requires the last fixed parameter (to get the address) */
+  for(j = 0; j < no; j++)
+    total_len += strlen(va_arg(ap, char*)); /* Increments ap to the next argument. */
+  va_end(ap);
+  
+  result = (char*) malloc(sizeof(char) * (total_len + 1));
+  char* next_add = result;
+  char* next_str;
+  va_start(ap, no); /* Requires the last fixed parameter (to get the address) */
+  for(j = 0; j < no; j++){
+    next_str = va_arg(ap, char*);
+    strcpy(next_add, next_str);
+    next_add += strlen(next_str);
+  } /* Increments ap to the next argument. */
+  va_end(ap);
+  return result; 
+}
+
+char* check_extension(char* string){
   char* last_dot = string;
   char* next_dot = last_dot;
   while((next_dot = strstr(next_dot + 1, ".")) != NULL){
     last_dot = next_dot;
   }
-  printf("%s", last_dot);
+  last_dot = last_dot + 1;
+  if(strcmp(last_dot, "html") == 0 || strcmp(last_dot, "htm") == 0) return stralloc("text/html");
+  else if(strcmp(last_dot, "txt") == 0) return stralloc("text/plain");
+  else if(strcmp(last_dot, "jpeg") == 0 || strcmp(last_dot, "jpg") == 0) return stralloc("text/jpeg");
+  else if(strcmp(last_dot, "gif") == 0) return stralloc("image/gif");
+  else if(strcmp(last_dot, "png") == 0) return stralloc("image/png");
+
+  else return stralloc("application/octet-stream");
 }
 
+/*
+404 Not FoundThe requested file cannot be found.
+*/
+
+char* request_template(char* message, char* long_message){
+  char* left = "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" 3\"http://www.w3.org/TR/html4/strict.dtd\">\n"
+               "<html>\n"
+               "<head>\n"
+               "<title> ";
+  char* right = " </title>\n</head>\n<body>\n<p> ";
+  
+  char* far_right =  " </p>\n</body>\n</html>";
+  return glue_strings(5, left, message, right, long_message, far_right);
+}
+
+int file_size(char* filename){
+  struct stat st;
+  stat(filename, &st);
+  return st.st_size;
+}
+/*
 struct request{
   int request_ok;
   char* host_name;
   char* resource_name;
   int keep_alive;
-};
+};*/
 
+/*
 struct response{
-  int code;
+  char* code;
   int content_length;
+  int keep_alive;
   char* content_type;
-  int response_descriptor;
+  char* html;
 };
+*/
+void free_response(struct response* resp){
+  free(resp->content_type);
+  //free(resp->resource_name);
+  free(resp->html);
+  free(resp->code);
+  free(resp);
+}
+
+
+
+void read_file(char* name, int fd){
+  //int size = file_size(name);
+  //char* buffer = (char*) malloc(sizeof(char) * (size + 1));
+    //memset(buffer, 50, 10000);
+  //char* index = buffer;
+  FILE *fp = fopen(name, "rb");
+ 
+  int rc;
+  while((rc = getc(fp)) != EOF){
+    char hujamuja = rc;
+    write(fd, &hujamuja, 1);
+    //*index = (char) rc;
+    //index++;
+  }
+  //*index = '\0';
+
+  fclose(fp);
+  //return buffer;
+}
+
+void print_response(const struct response* resp){
+  printf("-------- BEGIN struct response --------\n");
+  printf("code: %s\n", resp->code);
+  printf("content_length: %d\n", resp->content_length);
+  printf("keep_alive: %d\n", resp->keep_alive);
+  printf("content_type: %s\n", resp->content_type);
+  printf("html: %s\n", resp->html);
+  printf("-------- END struct response --------\n");
+}
 
 
 struct response* malloc_response(struct request* req){
   struct response* resp = (struct response*) malloc(sizeof(struct response));
+  resp->keep_alive = req->keep_alive;
+  resp->content_length = 0;
+  resp->content_type = stralloc("text/html");
   if(req->request_ok == -1){
     resp->code = stralloc("500 Internal Server Error");
-    return resp;
+    resp->html = request_template("500", "500 -- internal server error. "
+    "There's nothing you can do about it, we have screwed up aka \"a team"
+    "of highly trained monkeys has been sent to deal with this problem\"");
+    resp->content_length = strlen(resp->html);
+
   }
   else if(req->request_ok == 404){
     resp->code = stralloc("404 Not Found");
-    return resp;
+    resp->html = request_template("404", "404 -- couldn't find the re"
+    "source. Are you sure you typed the URL correctly?");
+    resp->content_length = strlen(resp->html);
+
   }
   else if(req->request_ok != 0){
     resp->code = stralloc("400 Bad Request");
-    return resp;
+    resp->html = request_template("400", "server says: 400 It seems your browser screwed up.");
+    resp->content_length = strlen(resp->html);
   }
   else{
     resp->code = stralloc("200 OK");
-    content_length ->
+    resp -> content_length = file_size(req->resource_name);
+    free(resp->content_type);
+    resp -> content_type = check_extension(req->resource_name);
+    resp -> html = NULL;
+    //resp -> html = read_file(req->resource_name);
   }
+  //free_request(req);
+  return resp;
+}
+/*
+HTTP/1.1 200 OK
+Content-Type: text/html
+Connection: close
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+"http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+
+struct response{
+  char* code;
+  int content_length;
+  int keep_alive;
+  char* content_type;
+  char* html;
+};
+*/
+
+void wrt(int fd, char* str){
+  if (str==NULL) return;
+  printf("%s", str);
+  int amount = write(fd, str, strlen(str));
+  if (amount == -1) printf("error writing!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 }
 
+void write_request(struct response* resp, int fd){
+  wrt(fd, "HTTP/1.1 ");
+  wrt(fd, resp->code);
+  wrt(fd, "\r\n");
+  
+  wrt(fd, "Content-Type: ");
+  wrt(fd, resp->content_type);
+  wrt(fd, "\r\n");
 
+  wrt(fd, "Connection: ");
+  if(resp->keep_alive){
+    wrt(fd, "keep-alive");
+  } else {
+    wrt(fd, "close");
+  }
+  wrt(fd, "\r\n");
+
+  wrt(fd, "Content-Length: ");
+  char huja[30];
+  sprintf (huja,"%d", (resp->content_length));
+  wrt(fd, huja);
+  wrt(fd, "\r\n\r\n");
+  
+  //int status_write = write(server_descriptor, request, strlen(request));
+}
 
 char* resource_normalise(char* resource_string){
   char* malloced;
@@ -156,7 +293,6 @@ int resource_exists(struct request* request){
     return returned;    
 }
 
-
 char* parse_header(char* host, char** headers, unsigned int minimum_length, int size, struct request* parse_to){
   int i_host;
   char* from_request;
@@ -179,6 +315,10 @@ char* parse_header(char* host, char** headers, unsigned int minimum_length, int 
 
   return strstr(headers[i_host], " ");
 }
+
+
+
+
 
 struct request* malloc_request(){
   struct request* return_this;
@@ -334,8 +474,8 @@ void parse_request(struct request *parse_to, char *request_str){
 
   resource_req = resource_normalise(resource_req);
   
-  parse_to->host_name = host_req;
   parse_to->resource_name = resource_req;
+  parse_to->host_name = host_req;
   
   if(!resource_exists(parse_to)) return;
   if(!correct_host(parse_to)){

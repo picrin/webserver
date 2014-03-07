@@ -4,11 +4,11 @@ COMP=clang
 CFLAGS= -Wall -Wextra -Wfatal-errors -g
 
 #These are reommended flags, and a recommended compiler.  
-#COMP=gcc
-#CFLAGS=-Wall -Wextra -O2
+COMP=gcc
+CFLAGS=-Wall -Wextra -O2
 
-test: main.c http_parser.o
-	$(COMP) $(CFLAGS) main.c http_parser.o -o test
+test: main.c
+	$(COMP) $(CFLAGS) main.c -o test
 
 http_parser.o: http_parser.h http_parser.c
 	$(COMP) $(CFLAGS) -c http_parser.c -o http_parser.o
@@ -20,4 +20,4 @@ server.o: simple_server.c
 	$(COMP) $(CFLAGS) -c simple_server.c -o server.o
 
 server: server.o http_parser.o
-	$(COMP) $(CFLAGS) http_parser.o server.o -o server
+	$(COMP) $(CFLAGS) http_parser.o server.o -lpthread -o server

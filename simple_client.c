@@ -33,14 +33,14 @@ int main(){
   if (status_connection == -1)
     report_error("client connection error");
    
-  char *request = "GET / HTTP/1.1\r\nUser-Agent: curl/7.29.0\r\nHost: magia.dcs.gla.ac.uk\r\nconnection: close\r\nAccept: */*\r\n\r\n";
+  char *request = "GET /index.html HTTP/1.1\r\nUser-Agent: curl/7.29.0\r\nHost: localhost\r\nconnection: keep-alive\r\nAccept: */*\r\n\r\n";
 
   int status_write = write(server_descriptor, request, strlen(request));
   //printf("string length %lu\n", strlen(request));
   if(status_write == -1){
     report_error("status write error");
   }
-  //sleep(1);
+  sleep(1);
   close(server_descriptor);
   return 0;
 }
