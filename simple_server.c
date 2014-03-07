@@ -98,7 +98,7 @@ void dispatch_request(char* from, char* to, int accept_socket, int* keep_alive){
   *keep_alive = req->keep_alive;
   free(req_str);
   free_request(req);
-  print_response(resp);
+  //print_response(resp);
   free_response(resp); 
 }
 
@@ -131,9 +131,9 @@ void forever_accept(){
   int keep_alive = 1;
   while(message_length != 0 && keep_alive == 1){
     message_length = read(accept_status, recv_buffer, recv_len);
-    //if (message_length == -1)report_error("read error");
+    if (message_length == -1) printf("read error");
     if (message_length + (indecies_state->big_buffer_index) >=
-        (char *) received_string + big_buffer_len) report_error("GET request to"
+        (char *) received_string + big_buffer_len) printf("GET request to"
         "o big, or too many GET requests in too short time. Support for up to 1"
         "0 kB/read");
     //print_indecies(indecies_state);
@@ -163,40 +163,6 @@ void forever_accept(){
 
 int main(){
   signal(SIGPIPE, SIG_IGN);
-  /*
-  //test1
-  const char bigbuffer[10000];
-  struct indecies* i = malloc_indecies();
-  char* buffer_beg = "babajagapatrzy1234rotwailery";
-  char* buffer_end = buffer_beg + strlen(buffer_beg);
-  i->position_index = buffer_beg;
-  i->big_buffer_index = (char*) bigbuffer;
-  printf("TEST 1 ---------------------------------------------\n");
-  print_indecies(i);
-  read_http_message(i, buffer_end);
-  print_indecies(i);
-  //test2
-  i = malloc_indecies();
-  buffer_beg = "babajagapatrzyrotwailery12";
-  buffer_end = buffer_beg + strlen(buffer_beg);
-  i->position_index = buffer_beg;
-  i->big_buffer_index = (char*) bigbuffer;
-  printf("TEST 2 ---------------------------------------------\n");
-  print_indecies(i);
-  read_http_message(i, buffer_end);
-  print_indecies(i);
-
-  //test3
-  i = malloc_indecies();
-  buffer_beg = "babajagapatrzy1234rotwailery" + 10;
-  buffer_end = buffer_beg + strlen(buffer_beg);
-  i->position_index = buffer_beg;
-  i->big_buffer_index = (char*) bigbuffer;
-  printf("TEST 3 ---------------------------------------------\n");
-  print_indecies(i);
-  read_http_message(i, buffer_end);
-  print_indecies(i);
-  */
   
   server_descriptor = socket(PF_INET, SOCK_STREAM, 0);
     
@@ -223,8 +189,12 @@ int main(){
   if(listen_status == -1) report_error("socket can't listen");
   
   pthread_t ids[thread_no];
-  //pthread_t id0;
-  //pthread_t id1;
+  
+  printf("Welcome to my implementation of a simple parallel http webserver."
+  " To appreciate concurrency you can edit a const int thread_no in line num"
+  "ber 20 to any value you wish. Happy marking!\n");
+
+
   int i;
   for(i = 0; i<thread_no; i++){
     pthread_create (

@@ -207,7 +207,7 @@ struct response{
 
 void wrt(int fd, char* str){
   if (str==NULL) return;
-  printf("%s", str);
+  //printf("%s", str);
   int amount = write(fd, str, strlen(str));
   if (amount == -1) printf("error writing!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 }
@@ -349,9 +349,9 @@ void free_request(struct request* free_request){
 }
 
 void parse_request(struct request *parse_to, char *request_str){
-  printf("ffffffffffffffffffffffffff\n");
-  printf("%s", request_str);
-  printf("ffffffffffffffffffffffffff\n");
+  //printf("ffffffffffffffffffffffffff\n");
+  //printf("%s", request_str);
+  //printf("ffffffffffffffffffffffffff\n");
 
   const int max_no_headers = 128;
   //const int max_length_header = 1024;
