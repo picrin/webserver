@@ -15,6 +15,7 @@ void report_error(char* message){
 
 
 int main(){
+  signal(SIGPIPE, SIG_IGN);
   int server_descriptor = socket(PF_INET, SOCK_STREAM, 0);
   if(server_descriptor == -1) report_error("client socket descriptor error");
 

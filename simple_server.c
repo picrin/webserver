@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <signal.h>
 
 #include "http_parser.h"
 #include <pthread.h>
@@ -18,8 +19,10 @@ const int backlog = 20;
 const char* DELIMITER = "\r\n\r\n";
 const int DELIMITER_LENGTH = 4;
 
+//this is protected from race conditions
+//by being set only once by the master
+//thread.
 int server_descriptor;
-
 
 void report_error(char* message){
   printf("%s\n", message);
@@ -73,6 +76,7 @@ void dispatch_request(char* from, char* to, int accept_socket, int* keep_alive){
   char* req_str = (char*) malloc(sizeof(char) * (to - from + 1));
   char* char_i;
   int int_i;
+  int _ = 0;
   for(char_i = from, int_i = 0; char_i < to; char_i++, int_i++){
     *(req_str + int_i) = *(char_i);
   }
@@ -85,7 +89,11 @@ void dispatch_request(char* from, char* to, int accept_socket, int* keep_alive){
   if(resp->html == 0){
     read_file(req->resource_name, accept_socket);
   } else{
-    int magia = write(accept_socket, resp->html, strlen(resp->html));
+    _ = write(accept_socket, resp->html, strlen(resp->html));
+    
+  }
+  if(_ == -1){
+    printf("scream write %d\n", _);
   }
   *keep_alive = req->keep_alive;
   free(req_str);
@@ -119,7 +127,7 @@ void forever_accept(){
   indecies_state->big_buffer_index = (char *) received_string;
   indecies_state->position_index = (char *) recv_buffer;
   int has_delimiter = 0;
-  char* end;
+  char* end = NULL;
   int keep_alive = 1;
   while(message_length != 0 && keep_alive == 1){
     message_length = read(accept_status, recv_buffer, recv_len);
@@ -154,6 +162,7 @@ void forever_accept(){
 
 
 int main(){
+  signal(SIGPIPE, SIG_IGN);
   /*
   //test1
   const char bigbuffer[10000];

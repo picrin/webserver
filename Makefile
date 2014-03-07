@@ -5,7 +5,7 @@ CFLAGS= -Wall -Wextra -Wfatal-errors -g
 
 #These are reommended flags, and a recommended compiler.  
 COMP=gcc
-CFLAGS=-Wall -Wextra -O2
+#CFLAGS=-Wall -Wextra -O2
 
 test: main.c
 	$(COMP) $(CFLAGS) main.c -o test

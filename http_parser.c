@@ -63,7 +63,7 @@ char* check_extension(char* string){
   last_dot = last_dot + 1;
   if(strcmp(last_dot, "html") == 0 || strcmp(last_dot, "htm") == 0) return stralloc("text/html");
   else if(strcmp(last_dot, "txt") == 0) return stralloc("text/plain");
-  else if(strcmp(last_dot, "jpeg") == 0 || strcmp(last_dot, "jpg") == 0) return stralloc("text/jpeg");
+  else if(strcmp(last_dot, "jpeg") == 0 || strcmp(last_dot, "jpg") == 0) return stralloc("image/jpeg");
   else if(strcmp(last_dot, "gif") == 0) return stralloc("image/gif");
   else if(strcmp(last_dot, "png") == 0) return stralloc("image/png");
 
@@ -94,7 +94,6 @@ int file_size(char* filename){
 struct request{
   int request_ok;
   char* host_name;
-  char* resource_name;
   int keep_alive;
 };*/
 
@@ -123,16 +122,20 @@ void read_file(char* name, int fd){
     //memset(buffer, 50, 10000);
   //char* index = buffer;
   FILE *fp = fopen(name, "rb");
- 
+  int _ = 0;
   int rc;
   while((rc = getc(fp)) != EOF){
     char hujamuja = rc;
-    write(fd, &hujamuja, 1);
+    _ = write(fd, &hujamuja, 1);
     //*index = (char) rc;
     //index++;
+    if(_ == -1){
+      printf("scream won't write! %d\n", _);
+      break;
+    }
   }
   //*index = '\0';
-
+  
   fclose(fp);
   //return buffer;
 }
@@ -398,7 +401,7 @@ void parse_request(struct request *parse_to, char *request_str){
    */
   char* char_i;
   char* resource_begin;
-  char* resource_end;
+  char* resource_end = NULL;
   int space_counter = 0;
   char_i = saveptr[0];  
   while(*char_i != '\0'){
